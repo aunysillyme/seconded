@@ -296,23 +296,17 @@ function render(force) {
   $("#rfoot").innerHTML = foot;
 }
 
-/* The final sheet: the plan as it stands after the owner's answers. Fixed
-   lines show the fix, stopped lines are struck, accepted lines keep the note. */
+/* The final sheet: the plan as it stands after the owner's answers, as a
+   clean document. The review sheet keeps the marks; this one keeps none. */
 function renderFinal(s) {
+  // The corrected plan, presented as a plain document: fixes in place, stopped lines gone, nothing marked.
   const out = [`<li class="h">${esc(s.title)}</li>`];
-  const stopped = [];
   s.lines.forEach((text, i) => {
     if (i === 0 && s.title === text && s.lines.length > 1) return;
     const a = s.reveal[i] && s.reveal[i].answer;
-    if (!a) { out.push(`<li><span class="txt">${esc(text)}</span></li>`); return; }
-    if (a.choice === "fix") out.push(`<li class="fixed"><span class="txt">${esc(a.text)}</span><span class="note"><span class="chip">fixed</span>was: ${esc(text)}</span></li>`);
-    else if (a.choice === "stop") stopped.push({ text, why: a.text });
-    else out.push(`<li><span class="txt">${esc(text)}</span><span class="note"><span class="chip">accepted</span>${esc(a.text)}</span></li>`);
+    if (a && a.choice === "stop") return;
+    out.push(`<li><span class="txt">${esc(a && a.choice === "fix" ? a.text : text)}</span></li>`);
   });
-  if (stopped.length) {
-    out.push(`<li class="h nonum" style="font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--blood);padding-top:22px">stopped, out of the plan</li>`);
-    for (const x of stopped) out.push(`<li class="stopped nonum"><span class="txt">${esc(x.text)}</span><span class="note">${esc(x.why)}</span></li>`);
-  }
   $("#rlines").innerHTML = out.join("");
 }
 function amendedText(s) {
@@ -322,7 +316,7 @@ function amendedText(s) {
     const a = s.reveal[i] && s.reveal[i].answer;
     if (!a) rows.push(text);
     else if (a.choice === "fix") rows.push(a.text);
-    else if (a.choice === "accept") rows.push(text + "  (accepted: " + a.text + ")");
+    else if (a.choice === "accept") rows.push(text);
     // stopped lines leave the plan
   });
   return rows.join("\n");
