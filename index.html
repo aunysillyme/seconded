@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SECONDED</title>
+<meta name="description" content="A concern is heard when a second person has it too. Anonymous flags on a plan, sealed until seconded.">
+<meta property="og:title" content="SECONDED">
+<meta property="og:description" content="A concern is heard when a second person has it too.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23E6E1D6'/%3E%3Crect x='6' y='9' width='20' height='5' fill='%2317161A'/%3E%3Crect x='6' y='18' width='14' height='5' fill='%235E1A1E'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Special+Elite&family=Courier+Prime:ital,wght@0,400;0,700;1,400&display=swap">
+<style>
+  :root{
+    --paper:#E6E1D6; --ink:#17161A; --blood:#5E1A1E;
+    --rule:rgba(23,22,26,.28); --faint:rgba(23,22,26,.55);
+    --display:"Special Elite","Courier New",Courier,monospace;
+    --mono:"Courier Prime","Courier New",Courier,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--ink)}
+  body{color:var(--ink);font-family:var(--mono);font-size:15px;line-height:1.55;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:28px 12px 60px}
+  [hidden]{display:none!important}
+  .paper{width:100%;max-width:760px;background:var(--paper);position:relative;padding:34px 40px 40px 80px;min-height:480px;box-shadow:0 1px 0 rgba(0,0,0,.6)}
+  .paper::before{content:"";position:absolute;top:0;bottom:0;left:64px;width:5px;border-left:1px solid var(--blood);border-right:1px solid var(--blood)}
+  .paper::after{content:"";position:absolute;top:0;bottom:0;right:36px;border-left:1px solid var(--blood)}
+  .head{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-bottom:22px}
+  .head b{color:var(--ink);font-weight:400}
+  .head a{color:var(--blood)}
+
+  .title{font-family:var(--display);font-size:56px;letter-spacing:.06em;line-height:1;margin:38px 0 10px;text-wrap:balance}
+  .tag{font-size:17px;max-width:34ch;margin:0 0 34px}
+  .btns{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+  .btn{font-family:var(--display);border:2px solid var(--ink);padding:12px 22px;letter-spacing:.14em;font-size:14px;color:var(--ink);text-decoration:none;text-transform:uppercase;background:transparent;cursor:pointer;line-height:1.2}
+  .btn.dark{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+  .btn.sm{font-size:12px;padding:9px 16px}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .btn:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--blood);outline-offset:2px}
+  .rules{margin:38px 0 0;padding:0;list-style:none;font-size:13px;color:var(--faint);display:grid;gap:4px}
+  .rules li::before{content:"§ ";color:var(--blood)}
+  .back{position:absolute;left:80px;bottom:14px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);text-decoration:none}
+
+  input,textarea{font-family:var(--mono);font-size:15px;color:var(--ink);background:transparent;border:0;border-bottom:1.5px solid var(--ink);padding:8px 2px;width:100%}
+  textarea{min-height:260px;line-height:30px;border:0;resize:vertical;background:repeating-linear-gradient(to bottom,transparent 0 29px,var(--rule) 29px 30px);padding:0 2px}
+  textarea::placeholder,input::placeholder{color:var(--faint)}
+  .code{font-family:var(--display);font-size:32px;letter-spacing:.2em;text-transform:uppercase;max-width:9ch}
+  .err{color:var(--blood);font-size:13px;min-height:1.4em;margin-top:10px}
+
+  ol.lines{list-style:none;margin:0;padding:0;counter-reset:ln}
+  ol.lines li{position:relative;padding:5px 0;min-height:30px;border-bottom:1px dotted var(--rule)}
+  ol.lines li::before{counter-increment:ln;content:counter(ln);position:absolute;left:-60px;width:34px;text-align:right;color:var(--faint);font-size:12px;top:7px;font-variant-numeric:tabular-nums}
+  ol.lines li.h{font-family:var(--display);font-size:17px;border-bottom:none;padding-top:8px}
+  ol.lines li.h::before{content:""}
+  ol.lines li.can{cursor:pointer}
+  ol.lines li.can:hover .txt{text-decoration:underline;text-decoration-color:var(--blood)}
+  .txt{display:block}
+  .mark{position:absolute;left:-22px;top:9px;display:flex;gap:2px;align-items:flex-end}
+  .mark i{display:block;width:3px;height:14px;background:var(--blood)}
+  .mark i.g{width:16px;height:2px;position:absolute;left:-2px;top:6px;transform:rotate(-20deg)}
+  .mark em{font-style:normal;font-size:10px;color:var(--blood);margin-left:3px}
+  .why{display:block;font-size:13px;color:var(--blood);font-style:italic;margin:4px 0 2px 18px;padding-left:10px;border-left:1px solid var(--blood)}
+  .why::before{content:"— ";font-style:normal}
+  .whyin{margin:4px 0 4px 18px;padding-left:10px;border-left:1px solid var(--blood)}
+  .whyin input{font-style:italic;font-size:13px;color:var(--blood);border-bottom:1px dashed var(--blood);padding:4px 2px}
+  .redact{background:var(--ink);color:var(--ink);letter-spacing:-.02em;user-select:none;margin-left:18px}
+  .seal{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin-left:10px}
+  .heat1{box-shadow:inset 3px 0 0 var(--blood)}
+  .heat2{box-shadow:inset 6px 0 0 var(--blood)}
+  .heat3{box-shadow:inset 10px 0 0 var(--blood)}
+  li[class*=heat]{padding-left:16px}
+  li.flagged{padding-left:16px;box-shadow:inset 3px 0 0 var(--blood)}
+
+  .stamp{font-family:var(--display);display:inline-block;padding:6px 14px 4px;border:3px double var(--blood);color:var(--blood);letter-spacing:.22em;font-size:22px;transform:rotate(-5deg);position:absolute;right:70px;top:26px;opacity:.92;text-align:center;background:var(--paper)}
+  .stamp.ok{border-color:var(--ink);color:var(--ink)}
+  .stamp small{display:block;font-size:10px;letter-spacing:.14em;font-family:var(--mono)}
+
+  .foot{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-top:26px;padding-top:12px;border-top:1px solid var(--rule);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint)}
+  .foot b{color:var(--ink);font-weight:400}
+
+  .ans{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:8px 0 6px 18px;font-size:13px;align-items:start}
+  .choice{display:flex;gap:8px}
+  .choice button,.choice span{border:1.5px solid var(--ink);padding:1px 8px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;background:transparent;font-family:var(--mono);color:var(--ink);cursor:pointer}
+  .choice .on{background:var(--blood);border-color:var(--blood);color:var(--paper)}
+  .choice .pend{border-style:dashed;color:var(--faint);cursor:default}
+  .typed{color:var(--ink)}
+  .typed.pend{color:var(--faint);font-style:italic}
+  .ansin{display:flex;gap:10px;align-items:flex-end}
+  .ansin input{font-size:13px}
+  .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--paper);color:var(--ink);font-family:var(--display);letter-spacing:.14em;font-size:12px;text-transform:uppercase;padding:10px 18px;border:2px solid var(--blood);opacity:0;transition:opacity .2s;pointer-events:none}
+  .toast.show{opacity:1}
+  @media (prefers-reduced-motion:reduce){.toast{transition:none}}
+  @media (max-width:560px){.paper{padding:26px 22px 30px 62px}.paper::before{left:48px}.paper::after{right:16px}ol.lines li::before{left:-46px;width:28px}.mark{left:-16px}.title{font-size:40px}.stamp{right:24px;font-size:16px;top:14px}.back{left:62px}}
+</style>
+</head>
+<body>
+
+<section id="home" class="paper">
+  <div class="head"><span>no names, ever</span><span>a plan, a room, a stamp</span></div>
+  <h1 class="title">SECONDED</h1>
+  <p class="tag">A concern is heard when a second person has it too.</p>
+  <div class="btns">
+    <button class="btn dark" data-go="share">Share a plan</button>
+    <button class="btn" data-go="join">Join · code</button>
+  </div>
+  <ul class="rules">
+    <li>Everyone flags at least two lines, so flagging identifies nobody.</li>
+    <li>A lone flag stays sealed. Two independent flags on one line unseal it.</li>
+    <li>The owner answers every unsealed line before the plan is a GO.</li>
+  </ul>
+</section>
+
+<section id="share" class="paper" hidden>
+  <div class="head"><span>your plan</span><span>one line per plan line · first line is the title</span></div>
+  <textarea id="plan" placeholder="Team offsite, Big Bear, Oct 17 to 19
+Drive up Friday after the 3pm all-hands, arrive by 8.
+One cabin, sleeps 12. Two bathrooms.
+Saturday: 6am sunrise hike, then planning session 9 to 5.
+Budget $4,800 total, food included, split evenly."></textarea>
+  <div class="err" id="shareErr"></div>
+  <div class="btns" style="margin-top:14px"><button class="btn dark" id="openRoom">Open the room</button></div>
+  <a class="back" href="#" data-go="home">← front</a>
+</section>
+
+<section id="join" class="paper" hidden>
+  <div class="head"><span>join a room</span><span>the owner has the code</span></div>
+  <input class="code" id="joinCode" maxlength="6" placeholder="ASH41" autocomplete="off" spellcheck="false">
+  <div class="err" id="joinErr"></div>
+  <div class="btns" style="margin-top:14px"><button class="btn dark" id="joinBtn">Review the plan</button></div>
+  <a class="back" href="#" data-go="home">← front</a>
+</section>
+
+<section id="room" class="paper" hidden>
+  <div id="stamp"></div>
+  <div class="head" id="rhead"></div>
+  <ol class="lines" id="rlines"></ol>
+  <div class="foot" id="rfoot"></div>
+</section>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = "https://seconded-room.aunysillyme.workers.dev";
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const store = { get: (c) => { try { return JSON.parse(localStorage.getItem("sec:" + c) || "null"); } catch { return null; } }, set: (c, v) => { try { localStorage.setItem("sec:" + c, JSON.stringify(v)); } catch {} } };
+let CODE = null, ME = null, STATE = null, poll = null, draft = {}; // draft: line -> why (flagged lines)
+let toastT;
+const toast = (m) => { const t = $("#toast"); t.textContent = m; t.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("show"), 1800); };
+
+async function api(p, body) {
+  const r = await fetch(API + p, body ? { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) } : undefined);
+  const j = await r.json().catch(() => ({ error: "Bad reply." }));
+  if (!r.ok) throw new Error(j.error || ("HTTP " + r.status));
+  return j;
+}
+
+function show(id) { for (const s of document.querySelectorAll("section")) s.hidden = s.id !== id; if (id !== "room" && poll) { clearInterval(poll); poll = null; } }
+document.addEventListener("click", (e) => { const g = e.target.closest("[data-go]"); if (g) { e.preventDefault(); show(g.dataset.go); if (g.dataset.go === "home") history.replaceState(null, "", location.pathname); } });
+
+$("#openRoom").onclick = async () => {
+  $("#shareErr").textContent = "";
+  try {
+    const r = await api("/room/new", { plan: $("#plan").value });
+    store.set(r.code, { owner: r.owner });
+    enter(r.code);
+  } catch (e) { $("#shareErr").textContent = e.message; }
+};
+$("#joinBtn").onclick = () => { const c = $("#joinCode").value.toUpperCase().replace(/[^A-Z0-9]/g, ""); if (c.length < 5) { $("#joinErr").textContent = "Five characters, like ASH41."; return; } enter(c); };
+$("#joinCode").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#joinBtn").click(); });
+
+async function enter(code) {
+  CODE = code; ME = store.get(code) || {}; draft = {};
+  history.replaceState(null, "", "?r=" + code);
+  try {
+    let v = await api(`/room/${code}/state?t=${ME.token || ME.owner || ""}`);
+    if (v.phase === "review" && !ME.token) { const j = await api(`/room/${code}/join`, {}); ME.token = j.token; store.set(code, ME); }
+    show("room"); await tick();
+    poll = setInterval(tick, 2500);
+  } catch (e) { $("#joinErr").textContent = e.message; show("join"); }
+}
+async function tick() {
+  try { STATE = await api(`/room/${CODE}/state?t=${ME.owner || ME.token || ""}`); render(); } catch (e) { /* keep last render */ }
+}
+const isOwner = () => !!(ME && ME.owner);
+const roomLink = () => location.origin + location.pathname + "?r=" + CODE;
+
+function marks(n) {
+  if (!n) return "";
+  const k = Math.min(n, 5);
+  let s = '<span class="mark">';
+  for (let i = 0; i < Math.min(k, 4); i++) s += "<i></i>";
+  if (k === 5) s += '<i class="g"></i>';
+  if (n > 5) s += `<em>${n}</em>`;
+  return s + "</span>";
+}
+const heat = (n) => (n >= 4 ? "heat3" : n >= 2 ? "heat2" : n === 1 ? "heat1" : "");
+const fmtCode = (c) => c.slice(0, 3) + "-" + c.slice(3);
+
+function render() {
+  const s = STATE; if (!s) return;
+  const you = s.you; const owner = isOwner();
+  // head
+  let head = `<span>room <b>${fmtCode(s.code)}</b></span>`;
+  if (s.phase === "review") head += `<span><b>${s.reviewers}</b> reviewing · <b>${s.sealed}</b> sealed · no cap</span>`;
+  else head += `<span><b>${s.sealed}</b> reviewed · <b>${s.flags}</b> flags · <b>${s.secondedCount}</b> seconded</span>`;
+  $("#rhead").innerHTML = head;
+  // stamp
+  $("#stamp").innerHTML = s.phase === "reveal" ? (s.go ? `<span class="stamp ok">GO<small>every seconded line answered</small></span>` : `<span class="stamp">NO GO<small>${s.answered} of ${s.secondedCount} answered</small></span>`) : "";
+
+  // lines
+  const out = [`<li class="h">${esc(s.title)}</li>`];
+  const canFlag = s.phase === "review" && you.joined && !you.sealed;
+  s.lines.forEach((text, i) => {
+    if (i === 0 && s.title === text && s.lines.length > 1) return; // title line shown as heading
+    if (s.phase === "review") {
+      const f = i in draft;
+      out.push(`<li class="${canFlag ? "can" : ""} ${f ? "flagged" : ""}" data-i="${i}">${f ? marks(1) : ""}<span class="txt">${esc(text)}</span>` +
+        (f && canFlag ? `<div class="whyin"><input data-why="${i}" maxlength="240" placeholder="one line of why, optional" value="${esc(draft[i] || "")}"></div>` : "") + `</li>`);
+    } else {
+      const r = s.reveal[i];
+      let inner = `${marks(r.count)}<span class="txt">${esc(text)}</span>`;
+      if (r.seconded) {
+        inner += r.whys.map((w) => `<span class="why">${esc(w)}</span>`).join("");
+        if (r.answer) inner += `<div class="ans"><div class="choice">${["fix","accept","stop"].map((c) => `<span class="${c === r.answer.choice ? "on" : ""}">${c}</span>`).join("")}</div><div class="typed">${esc(r.answer.text)}</div></div>`;
+        else if (owner) inner += `<div class="ans"><div class="choice">${["fix","accept","stop"].map((c) => `<button data-ch="${c}" data-i="${i}" class="${draft["c" + i] === c ? "on" : ""}">${c}</button>`).join("")}</div><div class="ansin"><input data-ans="${i}" maxlength="400" placeholder="your answer, the room reads it" value="${esc(draft["a" + i] || "")}"><button class="btn sm" data-send="${i}">Answer</button></div></div>`;
+        else inner += `<div class="ans"><div class="choice"><span class="pend">fix</span><span class="pend">accept</span><span class="pend">stop</span></div><div class="typed pend">unanswered</div></div>`;
+      } else if (r.count > 0) {
+        inner += `<br><span class="redact">${"█".repeat(18 + (i * 7) % 12)}</span><span class="seal">sealed · ${r.count} of ${s.threshold}</span>`;
+      }
+      out.push(`<li class="${heat(r.count)}">${inner}</li>`);
+    }
+  });
+  $("#rlines").innerHTML = out.join("");
+
+  // foot
+  let foot = "";
+  if (s.phase === "review") {
+    const n = Object.keys(draft).length;
+    if (you.sealed) foot = `<span>sealed. <b>${s.sealed}</b> of <b>${s.reviewers}</b> sealed</span><span>waiting for the owner to reveal</span>`;
+    else if (canFlag) foot = `<span>you have flagged <b>${n}</b> of ${s.minFlags} minimum</span><span>tap a line to flag it · one line of why, optional</span><button class="btn sm" id="sealBtn" ${n < s.minFlags ? "disabled" : ""}>Seal my flags</button>`;
+    else foot = `<span>review is open</span>`;
+    if (owner) foot += `<span style="flex-basis:100%;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><span>share: <a href="${roomLink()}" id="copyLink">${esc(roomLink().replace(/^https?:\/\//, ""))}</a></span><button class="btn sm dark" id="revealBtn" ${s.sealed < 1 ? "disabled" : ""}>Reveal · ${s.sealed} sealed</button></span>`;
+  } else {
+    const top = s.reveal.map((r, i) => [r.count, i + 1]).filter((x) => x[0] > 0).sort((a, b) => b[0] - a[0]).slice(0, 3).map((x) => `<b>${x[1]}</b>`).join(", ");
+    foot = `<span>heaviest: ${top ? "lines " + top : "nothing flagged"}</span><span>sealed bars never open, not even to the owner</span>`;
+  }
+  $("#rfoot").innerHTML = foot;
+}
+
+// interactions on the room sheet
+$("#rlines").addEventListener("click", (e) => {
+  const s = STATE; if (!s) return;
+  const ch = e.target.closest("[data-ch]"); if (ch) { draft["c" + ch.dataset.i] = ch.dataset.ch; render(); return; }
+  const send = e.target.closest("[data-send]"); if (send) { answer(Number(send.dataset.send)); return; }
+  if (e.target.closest("input") || e.target.closest("button")) return;
+  const li = e.target.closest("li[data-i]"); if (!li || s.phase !== "review" || !s.you.joined || s.you.sealed) return;
+  const i = Number(li.dataset.i);
+  if (i in draft) delete draft[i]; else draft[i] = "";
+  render();
+  const inp = document.querySelector(`[data-why="${i}"]`); if (inp) inp.focus();
+});
+$("#rlines").addEventListener("input", (e) => {
+  if (e.target.dataset.why !== undefined) draft[Number(e.target.dataset.why)] = e.target.value;
+  if (e.target.dataset.ans !== undefined) draft["a" + e.target.dataset.ans] = e.target.value;
+});
+$("#rlines").addEventListener("keydown", (e) => { if (e.key === "Enter" && e.target.dataset.ans !== undefined) answer(Number(e.target.dataset.ans)); });
+$("#rfoot").addEventListener("click", async (e) => {
+  if (e.target.id === "sealBtn") {
+    const flags = Object.keys(draft).filter((k) => /^\d+$/.test(k)).map((k) => ({ line: Number(k), why: draft[k] }));
+    try { await api(`/room/${CODE}/seal`, { token: ME.token, flags }); toast("Sealed"); await tick(); } catch (err) { toast(err.message); }
+  }
+  if (e.target.id === "revealBtn") {
+    try { await api(`/room/${CODE}/reveal`, { token: ME.owner }); toast("Revealed"); await tick(); } catch (err) { toast(err.message); }
+  }
+  if (e.target.id === "copyLink") { e.preventDefault(); try { await navigator.clipboard.writeText(roomLink()); toast("Link copied"); } catch { toast(roomLink()); } }
+});
+async function answer(i) {
+  const choice = draft["c" + i], text = draft["a" + i] || "";
+  if (!choice) { toast("Pick fix, accept or stop"); return; }
+  try { const r = await api(`/room/${CODE}/answer`, { token: ME.owner, line: i, choice, text }); delete draft["c" + i]; delete draft["a" + i]; toast(r.go ? "GO" : "Answered"); await tick(); } catch (err) { toast(err.message); }
+}
+
+// deep link
+const q = new URLSearchParams(location.search).get("r");
+if (q) enter(q.toUpperCase().replace(/[^A-Z0-9]/g, ""));
+</script>
+</body>
+</html>
