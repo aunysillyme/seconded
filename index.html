@@ -91,7 +91,8 @@
   .typed.pend{color:var(--faint);font-style:italic}
   .ansin{display:flex;gap:10px;align-items:flex-end}
   .ansin input{font-size:13px}
-  .struck .txt{text-decoration:line-through;color:var(--faint)}
+  ol.lines li.nonum::before{content:"";counter-increment:none}
+  li.fixed{box-shadow:inset 3px 0 0 var(--ink);padding-left:16px}
   .stopped .txt{text-decoration:line-through;text-decoration-color:var(--blood);color:var(--faint)}
   .amend{display:block;margin:6px 0 4px 18px;padding-left:10px;border-left:2px solid var(--ink)}
   .chip{display:inline-block;border:1.5px solid var(--ink);padding:0 8px;font-size:10px;letter-spacing:.12em;text-transform:uppercase;margin-right:8px;vertical-align:middle;font-family:var(--mono)}
@@ -223,7 +224,7 @@ $("#joinBtn").onclick = () => { const c = $("#joinCode").value.toUpperCase().rep
 $("#joinCode").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#joinBtn").click(); });
 
 async function enter(code) {
-  CODE = code; ME = store.get(code) || {}; draft = {}; MODE = "reveal"; lastStamp = null;
+  CODE = code; ME = store.get(code) || {}; draft = {}; MODE = "reveal"; lastStamp = null; wasGo = false;
   history.replaceState(null, "", "?r=" + code);
   try {
     let v = await api(`/room/${code}/state`, null, ME.owner || ME.token || "");
@@ -250,7 +251,7 @@ function marks(n) {
 const heat = (n) => (n >= 4 ? "heat3" : n >= 2 ? "heat2" : n === 1 ? "heat1" : "");
 const fmtCode = (c) => c.slice(0, 3) + "-" + c.slice(3);
 
-let lastSig = "", lastStamp = null, MODE = "reveal"; // MODE: "reveal" or "final" (the plan as amended, after GO)
+let lastSig = "", lastStamp = null, MODE = "reveal", wasGo = false; // MODE: "reveal" or "final" (the plan as amended, after GO)
 function render(force) {
   const s = STATE; if (!s) return;
   const you = s.you; const owner = isOwner();
@@ -264,6 +265,9 @@ function render(force) {
   const stampHtml = s.phase === "reveal" ? (s.go ? `<span class="stamp ok">GO<small>every seconded line answered</small></span>` : `<span class="stamp">NO GO<small>${s.answered} of ${s.secondedCount} answered</small></span>`) : "";
   if (stampHtml !== lastStamp) { lastStamp = stampHtml; $("#stamp").innerHTML = stampHtml; }
   if (MODE === "final" && !(s.phase === "reveal" && s.go)) MODE = "reveal";
+  const goNow = s.phase === "reveal" && !!s.go;
+  if (goNow && !wasGo) MODE = "final"; // the moment the plan is a GO, everyone lands on the corrected copy
+  wasGo = goNow;
 
   // lines: only rebuilt when the room changed, so typing a why or an answer is never interrupted by the poll
   const sig = JSON.stringify([s.phase, s.reveal || null, s.you, MODE]);
@@ -283,7 +287,7 @@ function render(force) {
     const top = s.reveal.map((r, i) => [r.count, i + off]).filter((x) => x[0] > 0 && x[1] > 0).sort((a, b) => b[0] - a[0]).slice(0, 3).map((x) => `<b>${x[1]}</b>`).join(", ");
     if (MODE === "final") {
       const c = { fix: 0, accept: 0, stop: 0 }; for (const r of s.reveal) if (r.answer) c[r.answer.choice]++;
-      foot = `<span>the plan as amended · <b>${c.fix}</b> fixed · <b>${c.accept}</b> accepted · <b>${c.stop}</b> stopped</span><span style="display:flex;gap:10px"><button class="btn sm" id="backReveal">← the review</button><button class="btn sm dark" id="copyFinal">Copy the plan</button></span>`;
+      foot = `<span>the corrected plan · <b>${c.fix}</b> fixed · <b>${c.accept}</b> accepted · <b>${c.stop}</b> stopped</span><span style="display:flex;gap:10px"><button class="btn sm" id="backReveal">← the review</button><button class="btn sm dark" id="copyFinal">Copy the plan</button></span>`;
     } else {
       foot = `<span>heaviest: ${top ? "lines " + top : "nothing flagged"}</span><span>sealed bars never open, not even to the owner</span>`;
       if (s.go) foot += `<span style="flex-basis:100%;display:flex;justify-content:flex-end"><button class="btn sm dark" id="finalBtn">Open the final sheet →</button></span>`;
@@ -296,14 +300,19 @@ function render(force) {
    lines show the fix, stopped lines are struck, accepted lines keep the note. */
 function renderFinal(s) {
   const out = [`<li class="h">${esc(s.title)}</li>`];
+  const stopped = [];
   s.lines.forEach((text, i) => {
     if (i === 0 && s.title === text && s.lines.length > 1) return;
     const a = s.reveal[i] && s.reveal[i].answer;
     if (!a) { out.push(`<li><span class="txt">${esc(text)}</span></li>`); return; }
-    if (a.choice === "fix") out.push(`<li class="struck"><span class="txt">${esc(text)}</span><span class="amend"><span class="chip">fixed</span>${esc(a.text)}</span></li>`);
-    else if (a.choice === "stop") out.push(`<li class="stopped"><span class="txt">${esc(text)}</span><span class="note"><span class="chip stop">stopped</span>${esc(a.text)}</span></li>`);
+    if (a.choice === "fix") out.push(`<li class="fixed"><span class="txt">${esc(a.text)}</span><span class="note"><span class="chip">fixed</span>was: ${esc(text)}</span></li>`);
+    else if (a.choice === "stop") stopped.push({ text, why: a.text });
     else out.push(`<li><span class="txt">${esc(text)}</span><span class="note"><span class="chip">accepted</span>${esc(a.text)}</span></li>`);
   });
+  if (stopped.length) {
+    out.push(`<li class="h nonum" style="font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--blood);padding-top:22px">stopped, out of the plan</li>`);
+    for (const x of stopped) out.push(`<li class="stopped nonum"><span class="txt">${esc(x.text)}</span><span class="note">${esc(x.why)}</span></li>`);
+  }
   $("#rlines").innerHTML = out.join("");
 }
 function amendedText(s) {
