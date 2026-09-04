@@ -67,10 +67,10 @@
   .heat1{box-shadow:inset 3px 0 0 var(--blood)}
   .heat2{box-shadow:inset 6px 0 0 var(--blood)}
   .heat3{box-shadow:inset 10px 0 0 var(--blood)}
-  li[class*=heat]{padding-left:16px}
-  li.flagged{padding-left:16px;box-shadow:inset 3px 0 0 var(--blood)}
+  ol.lines li[class*=heat],ol.lines li.flagged{padding-left:16px}
+  li.flagged{box-shadow:inset 3px 0 0 var(--blood)}
 
-  .stamp{font-family:var(--display);display:inline-block;padding:6px 14px 4px;border:3px double var(--blood);color:var(--blood);letter-spacing:.22em;font-size:22px;transform:rotate(-5deg);position:absolute;right:70px;top:26px;opacity:.92;text-align:center;background:var(--paper)}
+  .stamp{font-family:var(--display);display:inline-block;padding:6px 14px 4px;border:3px double var(--blood);color:var(--blood);letter-spacing:.22em;font-size:22px;transform:rotate(-5deg);position:absolute;right:60px;top:64px;opacity:.92;text-align:center;background:var(--paper)}
   .stamp.ok{border-color:var(--ink);color:var(--ink)}
   .stamp small{display:block;font-size:10px;letter-spacing:.14em;font-family:var(--mono)}
 
@@ -224,7 +224,8 @@ function render(force) {
     else foot = owner ? `<span>you wrote it, so you do not flag it</span><span>send the link · reveal once they have sealed</span>` : `<span>review is open</span>`;
     if (owner) foot += `<span style="flex-basis:100%;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><span>share: <a href="${roomLink()}" id="copyLink">${esc(roomLink().replace(/^https?:\/\//, ""))}</a></span><button class="btn sm dark" id="revealBtn" ${s.sealed < s.minSealed ? "disabled" : ""}>${s.sealed < s.minSealed ? `Reveal · needs ${s.minSealed} sealed` : `Reveal · ${s.sealed} sealed`}</button></span>`;
   } else {
-    const top = s.reveal.map((r, i) => [r.count, i + 1]).filter((x) => x[0] > 0).sort((a, b) => b[0] - a[0]).slice(0, 3).map((x) => `<b>${x[1]}</b>`).join(", ");
+    const off = (s.title === s.lines[0] && s.lines.length > 1) ? 0 : 1; // displayed numbers skip the title line
+    const top = s.reveal.map((r, i) => [r.count, i + off]).filter((x) => x[0] > 0 && x[1] > 0).sort((a, b) => b[0] - a[0]).slice(0, 3).map((x) => `<b>${x[1]}</b>`).join(", ");
     foot = `<span>heaviest: ${top ? "lines " + top : "nothing flagged"}</span><span>sealed bars never open, not even to the owner</span>`;
   }
   $("#rfoot").innerHTML = foot;
