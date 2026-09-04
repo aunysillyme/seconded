@@ -209,7 +209,8 @@ export class Room {
 
   /* The only thing that leaves the room. Same shape for everyone, owner
      included: flag text only on lines with THRESHOLD or more independent
-     flags, shuffled so order says nothing about who or when. */
+     flags, in alphabetical order so the order says nothing about who or when
+     and the payload is identical poll to poll. */
   view(t) {
     const s = this.s;
     const me = this.r.get(t);
@@ -226,7 +227,7 @@ export class Room {
       out.reveal = s.lines.map((_, i) => ({
         count: counts[i],
         seconded: counts[i] >= THRESHOLD,
-        whys: counts[i] >= THRESHOLD ? shuffle(whys[i]) : [],
+        whys: counts[i] >= THRESHOLD ? whys[i].slice().sort((a, b) => a.localeCompare(b)) : [], // alphabetical: stable across polls, says nothing about who or when
         answer: s.answers[i] || null,
       }));
       out.flags = counts.reduce((a, b) => a + b, 0);
@@ -236,10 +237,4 @@ export class Room {
     }
     return out;
   }
-}
-
-function shuffle(a) {
-  const b = a.slice();
-  for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; }
-  return b;
 }
