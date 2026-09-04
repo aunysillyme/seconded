@@ -21,7 +21,7 @@
   html,body{margin:0;background:var(--ink)}
   body{color:var(--ink);font-family:var(--mono);font-size:15px;line-height:1.55;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:28px 12px 60px}
   [hidden]{display:none!important}
-  .paper{width:100%;max-width:760px;background:var(--paper);position:relative;padding:34px 40px 60px 80px;min-height:calc(100vh - 88px);box-shadow:0 1px 0 rgba(0,0,0,.6)}
+  .paper{width:100%;max-width:760px;background:var(--paper);position:relative;padding:34px 40px 64px 80px;min-height:calc(100vh - 88px);box-shadow:0 1px 0 rgba(0,0,0,.6)}
   .paper::before{content:"";position:absolute;top:0;bottom:0;left:64px;width:5px;border-left:1px solid var(--blood);border-right:1px solid var(--blood)}
   .paper::after{content:"";position:absolute;top:0;bottom:0;right:36px;border-left:1px solid var(--blood)}
   .head{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-bottom:22px}
@@ -139,6 +139,7 @@ Budget $4,800 total, food included, split evenly."></textarea>
   <div class="head" id="rhead"></div>
   <ol class="lines" id="rlines"></ol>
   <div class="foot" id="rfoot"></div>
+  <a class="back" href="#" data-go="home">← front</a>
 </section>
 
 <div class="toast" id="toast"></div>
