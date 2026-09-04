@@ -196,7 +196,8 @@ function marks(n) {
 const heat = (n) => (n >= 4 ? "heat3" : n >= 2 ? "heat2" : n === 1 ? "heat1" : "");
 const fmtCode = (c) => c.slice(0, 3) + "-" + c.slice(3);
 
-function render() {
+let lastSig = "";
+function render(force) {
   const s = STATE; if (!s) return;
   const you = s.you; const owner = isOwner();
   // head
@@ -207,7 +208,27 @@ function render() {
   // stamp
   $("#stamp").innerHTML = s.phase === "reveal" ? (s.go ? `<span class="stamp ok">GO<small>every seconded line answered</small></span>` : `<span class="stamp">NO GO<small>${s.answered} of ${s.secondedCount} answered</small></span>`) : "";
 
-  // lines
+  // lines: only rebuilt when the room changed, so typing a why or an answer is never interrupted by the poll
+  const sig = JSON.stringify([s.phase, s.reveal || null, s.you]);
+  if (force || sig !== lastSig) { lastSig = sig; renderLines(s, owner); }
+
+  // foot
+  let foot = "";
+  if (s.phase === "review") {
+    const n = Object.keys(draft).length;
+    if (you.sealed) foot = `<span>sealed. <b>${s.sealed}</b> of <b>${s.reviewers}</b> sealed</span><span>waiting for the owner to reveal</span>`;
+    else if (canFlag) foot = `<span>you have flagged <b>${n}</b> of ${s.minFlags} minimum</span><span>tap a line to flag it · one line of why, optional</span><button class="btn sm" id="sealBtn" ${n < s.minFlags ? "disabled" : ""}>Seal my flags</button>`;
+    else foot = owner ? `<span>you wrote it, so you do not flag it</span><span>send the link · reveal once they have sealed</span>` : `<span>review is open</span>`;
+    if (owner) foot += `<span style="flex-basis:100%;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><span>share: <a href="${roomLink()}" id="copyLink">${esc(roomLink().replace(/^https?:\/\//, ""))}</a></span><button class="btn sm dark" id="revealBtn" ${s.sealed < 1 ? "disabled" : ""}>Reveal · ${s.sealed} sealed</button></span>`;
+  } else {
+    const top = s.reveal.map((r, i) => [r.count, i + 1]).filter((x) => x[0] > 0).sort((a, b) => b[0] - a[0]).slice(0, 3).map((x) => `<b>${x[1]}</b>`).join(", ");
+    foot = `<span>heaviest: ${top ? "lines " + top : "nothing flagged"}</span><span>sealed bars never open, not even to the owner</span>`;
+  }
+  $("#rfoot").innerHTML = foot;
+}
+
+function renderLines(s, owner) {
+  const you = s.you;
   const out = [`<li class="h">${esc(s.title)}</li>`];
   const canFlag = s.phase === "review" && you.joined && !you.sealed;
   s.lines.forEach((text, i) => {
@@ -232,31 +253,18 @@ function render() {
   });
   $("#rlines").innerHTML = out.join("");
 
-  // foot
-  let foot = "";
-  if (s.phase === "review") {
-    const n = Object.keys(draft).length;
-    if (you.sealed) foot = `<span>sealed. <b>${s.sealed}</b> of <b>${s.reviewers}</b> sealed</span><span>waiting for the owner to reveal</span>`;
-    else if (canFlag) foot = `<span>you have flagged <b>${n}</b> of ${s.minFlags} minimum</span><span>tap a line to flag it · one line of why, optional</span><button class="btn sm" id="sealBtn" ${n < s.minFlags ? "disabled" : ""}>Seal my flags</button>`;
-    else foot = owner ? `<span>you wrote it, so you do not flag it</span><span>send the link · reveal once they have sealed</span>` : `<span>review is open</span>`;
-    if (owner) foot += `<span style="flex-basis:100%;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><span>share: <a href="${roomLink()}" id="copyLink">${esc(roomLink().replace(/^https?:\/\//, ""))}</a></span><button class="btn sm dark" id="revealBtn" ${s.sealed < 1 ? "disabled" : ""}>Reveal · ${s.sealed} sealed</button></span>`;
-  } else {
-    const top = s.reveal.map((r, i) => [r.count, i + 1]).filter((x) => x[0] > 0).sort((a, b) => b[0] - a[0]).slice(0, 3).map((x) => `<b>${x[1]}</b>`).join(", ");
-    foot = `<span>heaviest: ${top ? "lines " + top : "nothing flagged"}</span><span>sealed bars never open, not even to the owner</span>`;
-  }
-  $("#rfoot").innerHTML = foot;
 }
 
 // interactions on the room sheet
 $("#rlines").addEventListener("click", (e) => {
   const s = STATE; if (!s) return;
-  const ch = e.target.closest("[data-ch]"); if (ch) { draft["c" + ch.dataset.i] = ch.dataset.ch; render(); return; }
+  const ch = e.target.closest("[data-ch]"); if (ch) { draft["c" + ch.dataset.i] = ch.dataset.ch; render(true); return; }
   const send = e.target.closest("[data-send]"); if (send) { answer(Number(send.dataset.send)); return; }
   if (e.target.closest("input") || e.target.closest("button")) return;
   const li = e.target.closest("li[data-i]"); if (!li || s.phase !== "review" || !s.you.joined || s.you.sealed) return;
   const i = Number(li.dataset.i);
   if (i in draft) delete draft[i]; else draft[i] = "";
-  render();
+  render(true);
   const inp = document.querySelector(`[data-why="${i}"]`); if (inp) inp.focus();
 });
 $("#rlines").addEventListener("input", (e) => {
