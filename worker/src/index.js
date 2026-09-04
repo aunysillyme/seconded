@@ -136,6 +136,7 @@ export class Room {
     if (action === "join" && req.method === "POST") {
       if (s.phase !== "review") return json({ error: "Review is closed." }, 409);
       if (isOwner) return json({ error: "You wrote it. You do not flag it." }, 409);
+      s.ips = s.ips || {};
       const ip = req.headers.get("x-ip") || "?";
       if ((s.ips[ip] || 0) >= MAX_JOINS_PER_IP) return json({ error: "Too many reviewers from one place." }, 429);
       s.ips[ip] = (s.ips[ip] || 0) + 1;
