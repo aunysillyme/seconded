@@ -123,7 +123,7 @@ Budget $4,800 total, food included, split evenly."></textarea>
 
 <section id="join" class="paper" hidden>
   <div class="head"><span>join a room</span><span>the owner has the code</span></div>
-  <input class="code" id="joinCode" maxlength="6" placeholder="ASH41" autocomplete="off" spellcheck="false">
+  <input class="code" id="joinCode" maxlength="7" placeholder="ASH412" autocomplete="off" spellcheck="false">
   <div class="err" id="joinErr"></div>
   <div class="btns" style="margin-top:14px"><button class="btn dark" id="joinBtn">Review the plan</button></div>
   <a class="back" href="#" data-go="home">← front</a>
@@ -147,8 +147,10 @@ let CODE = null, ME = null, STATE = null, poll = null, draft = {}; // draft: lin
 let toastT;
 const toast = (m) => { const t = $("#toast"); t.textContent = m; t.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("show"), 1800); };
 
-async function api(p, body) {
-  const r = await fetch(API + p, body ? { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) } : undefined);
+async function api(p, body, tok) {
+  const headers = { "content-type": "application/json" };
+  if (tok) headers["x-token"] = tok;
+  const r = await fetch(API + p, body ? { method: "POST", headers, body: JSON.stringify(body) } : { headers });
   const j = await r.json().catch(() => ({ error: "Bad reply." }));
   if (!r.ok) throw new Error(j.error || ("HTTP " + r.status));
   return j;
@@ -165,21 +167,21 @@ $("#openRoom").onclick = async () => {
     enter(r.code);
   } catch (e) { $("#shareErr").textContent = e.message; }
 };
-$("#joinBtn").onclick = () => { const c = $("#joinCode").value.toUpperCase().replace(/[^A-Z0-9]/g, ""); if (c.length < 5) { $("#joinErr").textContent = "Five characters, like ASH41."; return; } enter(c); };
+$("#joinBtn").onclick = () => { const c = $("#joinCode").value.toUpperCase().replace(/[^A-Z0-9]/g, ""); if (c.length < 6) { $("#joinErr").textContent = "Six characters, like ASH412."; return; } enter(c); };
 $("#joinCode").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#joinBtn").click(); });
 
 async function enter(code) {
   CODE = code; ME = store.get(code) || {}; draft = {};
   history.replaceState(null, "", "?r=" + code);
   try {
-    let v = await api(`/room/${code}/state?t=${ME.token || ME.owner || ""}`);
-    if (v.phase === "review" && !ME.token) { const j = await api(`/room/${code}/join`, {}); ME.token = j.token; store.set(code, ME); }
+    let v = await api(`/room/${code}/state`, null, ME.owner || ME.token || "");
+    if (v.phase === "review" && !ME.token && !ME.owner) { const j = await api(`/room/${code}/join`, {}); ME.token = j.token; store.set(code, ME); }
     show("room"); await tick();
     poll = setInterval(tick, 2500);
   } catch (e) { $("#joinErr").textContent = e.message; show("join"); }
 }
 async function tick() {
-  try { STATE = await api(`/room/${CODE}/state?t=${ME.owner || ME.token || ""}`); render(); } catch (e) { /* keep last render */ }
+  try { STATE = await api(`/room/${CODE}/state`, null, ME.owner || ME.token || ""); render(); } catch (e) { /* keep last render */ }
 }
 const isOwner = () => !!(ME && ME.owner);
 const roomLink = () => location.origin + location.pathname + "?r=" + CODE;
@@ -213,13 +215,14 @@ function render(force) {
   if (force || sig !== lastSig) { lastSig = sig; renderLines(s, owner); }
 
   // foot
+  const canFlag = s.phase === "review" && you.joined && !you.sealed;
   let foot = "";
   if (s.phase === "review") {
     const n = Object.keys(draft).length;
     if (you.sealed) foot = `<span>sealed. <b>${s.sealed}</b> of <b>${s.reviewers}</b> sealed</span><span>waiting for the owner to reveal</span>`;
     else if (canFlag) foot = `<span>you have flagged <b>${n}</b> of ${s.minFlags} minimum</span><span>tap a line to flag it · one line of why, optional</span><button class="btn sm" id="sealBtn" ${n < s.minFlags ? "disabled" : ""}>Seal my flags</button>`;
     else foot = owner ? `<span>you wrote it, so you do not flag it</span><span>send the link · reveal once they have sealed</span>` : `<span>review is open</span>`;
-    if (owner) foot += `<span style="flex-basis:100%;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><span>share: <a href="${roomLink()}" id="copyLink">${esc(roomLink().replace(/^https?:\/\//, ""))}</a></span><button class="btn sm dark" id="revealBtn" ${s.sealed < 1 ? "disabled" : ""}>Reveal · ${s.sealed} sealed</button></span>`;
+    if (owner) foot += `<span style="flex-basis:100%;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><span>share: <a href="${roomLink()}" id="copyLink">${esc(roomLink().replace(/^https?:\/\//, ""))}</a></span><button class="btn sm dark" id="revealBtn" ${s.sealed < s.minSealed ? "disabled" : ""}>${s.sealed < s.minSealed ? `Reveal · needs ${s.minSealed} sealed` : `Reveal · ${s.sealed} sealed`}</button></span>`;
   } else {
     const top = s.reveal.map((r, i) => [r.count, i + 1]).filter((x) => x[0] > 0).sort((a, b) => b[0] - a[0]).slice(0, 3).map((x) => `<b>${x[1]}</b>`).join(", ");
     foot = `<span>heaviest: ${top ? "lines " + top : "nothing flagged"}</span><span>sealed bars never open, not even to the owner</span>`;

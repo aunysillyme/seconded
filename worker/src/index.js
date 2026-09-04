@@ -1,26 +1,34 @@
 /* SECONDED - the room worker.
 
    One Durable Object per room, addressed by name. The rule that matters lives
-   here, not in the page: a flag is stored against a device token and a line,
+   here, not in the page: a flag is stored against a reviewer token and a line,
    and the view handed out never carries the token. A line's flag TEXT leaves
    the room only when two different tokens flagged that line. A lone flag is a
    count, never a sentence, and that never changes - not for the owner either.
 
    Everyone who seals must flag at least MIN_FLAGS lines, so having flagged at
-   all identifies nobody. There is no cap on reviewers. */
+   all identifies nobody. There is no cap on reviewers. Each reviewer is its own
+   storage key, so a big room never outgrows a single value.
+
+   Known limit, stated on purpose: a determined person with two browsers can
+   second themselves. The promise is against the owner and the rest of the
+   group reading the room, not against an adversary with a second device. */
 
 const THRESHOLD = 2;      // independent flags needed to unseal a line
 const MIN_FLAGS = 2;      // lines each reviewer must flag before sealing
+const MIN_SEALED_TO_REVEAL = 2; // with one sealed, the owner would know whose lines those are
 const MAX_LINES = 60;
 const MAX_LINE = 300;
 const MAX_WHY = 240;
 const MAX_ANSWER = 400;
+const MAX_BODY = 32 * 1024;
+const MAX_JOINS_PER_IP = 25; // humans, unlimited; one machine filling a room, not
 const CHOICES = new Set(["fix", "accept", "stop"]);
 
 const CORS = {
   "access-control-allow-origin": "*",
   "access-control-allow-methods": "GET,POST,OPTIONS",
-  "access-control-allow-headers": "content-type",
+  "access-control-allow-headers": "content-type,x-token",
   "access-control-max-age": "86400",
 };
 const json = (o, s = 200) =>
@@ -36,10 +44,16 @@ const token = () => {
 };
 const codeFor = () => {
   const L = "ABCDEFGHJKMNPQRSTUVWXYZ", D = "23456789";
-  const r = (s) => s[Math.floor(Math.random() * s.length)];
-  return r(L) + r(L) + r(L) + r(D) + r(D);
+  const b = new Uint8Array(6); crypto.getRandomValues(b);
+  const r = (s, i) => s[b[i] % s.length];
+  return r(L, 0) + r(L, 1) + r(L, 2) + r(D, 3) + r(D, 4) + r(D, 5);
 };
 const cleanCode = (c) => String(c || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
+async function ipHash(req) {
+  const ip = req.headers.get("cf-connecting-ip") || "";
+  const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("seconded|" + ip));
+  return [...new Uint8Array(d).slice(0, 8)].map((x) => x.toString(16).padStart(2, "0")).join("");
+}
 
 export default {
   async fetch(req, env) {
@@ -47,21 +61,33 @@ export default {
     const url = new URL(req.url);
     const p = url.pathname.split("/").filter(Boolean);
     if (p[0] !== "room") return json({ error: "Not found." }, 404);
+    const len = Number(req.headers.get("content-length") || 0);
+    if (req.method === "POST" && len > MAX_BODY) return json({ error: "Too large." }, 413);
 
-    if (p[1] === "new" && req.method === "POST") {
-      // Pick a code the caller has not seen; the room itself validates the plan.
-      const code = codeFor();
-      const stub = env.ROOM.get(env.ROOM.idFromName(code));
-      return stub.fetch(new Request("https://room/" + code + "/new", { method: "POST", body: req.body, headers: req.headers }));
+    if (p[1] === "new" && p.length === 2 && req.method === "POST") {
+      // The room itself validates the plan. A code that is already taken is
+      // retried; /room/<code>/new is not a public path.
+      const body = await req.text();
+      if (body.length > MAX_BODY) return json({ error: "Too large." }, 413);
+      for (let i = 0; i < 4; i++) {
+        const code = codeFor();
+        const stub = env.ROOM.get(env.ROOM.idFromName(code));
+        const res = await stub.fetch(new Request("https://room/" + code + "/new", { method: "POST", body, headers: { "content-type": "application/json" } }));
+        if (res.status !== 409) return res;
+      }
+      return json({ error: "Could not find a free room code. Try again." }, 503);
     }
     const code = cleanCode(p[1]);
-    if (!code) return json({ error: "No room." }, 400);
+    const action = p[2] || "state";
+    if (!code || action === "new") return json({ error: "Not found." }, 404);
     const stub = env.ROOM.get(env.ROOM.idFromName(code));
+    const h = new Headers(req.headers);
+    h.set("x-ip", await ipHash(req));
     return stub.fetch(
-      new Request("https://room/" + code + "/" + (p[2] || "") + url.search, {
+      new Request("https://room/" + code + "/" + action + url.search, {
         method: req.method,
         body: req.method === "POST" ? req.body : undefined,
-        headers: req.headers,
+        headers: h,
       })
     );
   },
@@ -70,59 +96,61 @@ export default {
 export class Room {
   constructor(ctx) {
     this.ctx = ctx;
-    this.s = null;
+    this.s = null;          // room record
+    this.r = new Map();     // token -> { sealed, flags: [{line, why}] }, one storage key each
     this.ctx.blockConcurrencyWhile(async () => {
       this.s = (await this.ctx.storage.get("s")) || null;
+      if (this.s) this.r = await this.ctx.storage.list({ prefix: "r:" }).then((m) => new Map([...m].map(([k, v]) => [k.slice(2), v])));
     });
   }
   async save() { await this.ctx.storage.put("s", this.s); }
+  async saveReviewer(t) { await this.ctx.storage.put("r:" + t, this.r.get(t)); }
 
   async fetch(req) {
     const url = new URL(req.url);
     const [code, action] = url.pathname.split("/").filter(Boolean);
     let body = {};
     if (req.method === "POST") {
-      try { body = await req.json(); } catch { return json({ error: "Bad JSON." }, 400); }
-      if (!body || typeof body !== "object") return json({ error: "Bad body." }, 400);
+      const raw = await req.text();
+      if (raw.length > MAX_BODY) return json({ error: "Too large." }, 413);
+      try { body = raw ? JSON.parse(raw) : {}; } catch { return json({ error: "Bad JSON." }, 400); }
+      if (!body || typeof body !== "object" || Array.isArray(body)) return json({ error: "Bad body." }, 400);
     }
 
     if (action === "new") {
-      if (this.s) return json({ error: "Room code collision, try again." }, 409);
+      if (this.s) return json({ error: "Room code taken." }, 409);
       const raw = String(body.plan || "");
-      if (raw.length > MAX_LINES * MAX_LINE) return json({ error: "Plan too long." }, 400);
       const lines = raw.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).slice(0, MAX_LINES).map((l) => l.slice(0, MAX_LINE));
       if (lines.length < 3) return json({ error: "A plan needs at least three lines. One line per plan line." }, 400);
       const title = String(body.title || "").trim().slice(0, 120) || lines[0];
-      this.s = {
-        code, title, lines, owner: token(), created: Date.now(),
-        phase: "review",                // review -> reveal
-        reviewers: {},                  // token -> { sealed: bool }
-        flags: {},                      // token -> [{ line, why }]
-        answers: {},                    // line -> { choice, text }
-      };
+      this.s = { code, title, lines, owner: token(), created: Date.now(), phase: "review", answers: {}, ips: {} };
       await this.save();
       return json({ code, owner: this.s.owner });
     }
 
     if (!this.s) return json({ error: "No such room." }, 404);
     const s = this.s;
-    const t = String(body.token || url.searchParams.get("t") || "");
-    const isOwner = t && t === s.owner;
+    const t = String(body.token || req.headers.get("x-token") || url.searchParams.get("t") || "");
+    const isOwner = !!t && t === s.owner;
 
     if (action === "join" && req.method === "POST") {
       if (s.phase !== "review") return json({ error: "Review is closed." }, 409);
+      if (isOwner) return json({ error: "You wrote it. You do not flag it." }, 409);
+      const ip = req.headers.get("x-ip") || "?";
+      if ((s.ips[ip] || 0) >= MAX_JOINS_PER_IP) return json({ error: "Too many reviewers from one place." }, 429);
+      s.ips[ip] = (s.ips[ip] || 0) + 1;
       const tok = token();
-      s.reviewers[tok] = { sealed: false };
-      await this.save();
+      this.r.set(tok, { sealed: false, flags: [] });
+      await Promise.all([this.saveReviewer(tok), this.save()]);
       return json({ token: tok });
     }
 
     if (action === "seal" && req.method === "POST") {
       if (s.phase !== "review") return json({ error: "Review is closed." }, 409);
-      const r = s.reviewers[t];
-      if (!r) return json({ error: "Join the room first." }, 403);
-      if (r.sealed) return json({ error: "You already sealed." }, 409);
-      const raw = Array.isArray(body.flags) ? body.flags : [];
+      const me = this.r.get(t);
+      if (!me) return json({ error: "Join the room first." }, 403);
+      if (me.sealed) return json({ error: "You already sealed." }, 409);
+      const raw = Array.isArray(body.flags) ? body.flags.slice(0, MAX_LINES) : [];
       const seen = new Set();
       const flags = [];
       for (const f of raw) {
@@ -133,15 +161,17 @@ export class Room {
       }
       const need = Math.min(MIN_FLAGS, s.lines.length);
       if (flags.length < need) return json({ error: `Flag at least ${need} lines. That is what keeps you anonymous.` }, 400);
-      s.flags[t] = flags;
-      r.sealed = true;
-      await this.save();
+      me.flags = flags; me.sealed = true;
+      await this.saveReviewer(t);
       return json({ ok: true, sealed: this.sealedCount() });
     }
 
     if (action === "reveal" && req.method === "POST") {
       if (!isOwner) return json({ error: "Owner only." }, 403);
-      if (s.phase === "review") { s.phase = "reveal"; await this.save(); }
+      if (s.phase === "review") {
+        if (this.sealedCount() < MIN_SEALED_TO_REVEAL) return json({ error: `Needs ${MIN_SEALED_TO_REVEAL} sealed before it can be revealed. One sealed would tell you whose lines they are.` }, 409);
+        s.phase = "reveal"; await this.save();
+      }
       return json({ ok: true, phase: s.phase });
     }
 
@@ -160,16 +190,14 @@ export class Room {
       return json({ ok: true, go: this.go() });
     }
 
-    if (action === "state" || action === "") {
-      return json(this.view(t));
-    }
+    if (action === "state" && req.method === "GET") return json(this.view(t));
     return json({ error: "Not found." }, 404);
   }
 
-  sealedCount() { return Object.values(this.s.reviewers).filter((r) => r.sealed).length; }
+  sealedCount() { let n = 0; for (const r of this.r.values()) if (r.sealed) n++; return n; }
   counts() {
     const c = new Array(this.s.lines.length).fill(0);
-    for (const fl of Object.values(this.s.flags)) for (const f of fl) c[f.line]++;
+    for (const r of this.r.values()) if (r.sealed) for (const f of r.flags) c[f.line]++;
     return c;
   }
   seconded() { return this.counts().map((n, i) => (n >= THRESHOLD ? i : -1)).filter((i) => i >= 0); }
@@ -183,17 +211,17 @@ export class Room {
      flags, shuffled so order says nothing about who or when. */
   view(t) {
     const s = this.s;
-    const me = s.reviewers[t];
+    const me = this.r.get(t);
     const out = {
       code: s.code, title: s.title, lines: s.lines, phase: s.phase,
-      threshold: THRESHOLD, minFlags: Math.min(MIN_FLAGS, s.lines.length),
-      reviewers: Object.keys(s.reviewers).length, sealed: this.sealedCount(),
-      you: { owner: t === s.owner, joined: !!me, sealed: !!(me && me.sealed) },
+      threshold: THRESHOLD, minFlags: Math.min(MIN_FLAGS, s.lines.length), minSealed: MIN_SEALED_TO_REVEAL,
+      reviewers: this.r.size, sealed: this.sealedCount(),
+      you: { owner: !!t && t === s.owner, joined: !!me, sealed: !!(me && me.sealed) },
     };
     if (s.phase === "reveal") {
       const counts = this.counts();
       const whys = s.lines.map(() => []);
-      for (const fl of Object.values(s.flags)) for (const f of fl) if (f.why) whys[f.line].push(f.why);
+      for (const r of this.r.values()) if (r.sealed) for (const f of r.flags) if (f.why) whys[f.line].push(f.why);
       out.reveal = s.lines.map((_, i) => ({
         count: counts[i],
         seconded: counts[i] >= THRESHOLD,

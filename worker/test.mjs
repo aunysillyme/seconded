@@ -3,19 +3,23 @@ const BASE = process.argv[2] || "https://seconded-room.aunysillyme.workers.dev";
 let pass = 0, fail = 0;
 const ok = (c, m) => { if (c) { pass++; } else { fail++; console.log("FAIL", m); } };
 const post = async (p, b) => { const r = await fetch(BASE + p, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(b) }); return [r.status, await r.json()]; };
-const get = async (p) => (await fetch(BASE + p)).json();
+const get = async (p, tok) => (await fetch(BASE + p, { headers: tok ? { "x-token": tok } : {} })).json();
 
 // plan validation
 let [st, r] = await post("/room/new", { plan: "one\ntwo" });
 ok(st === 400, "two-line plan rejected");
 [st, r] = await post("/room/new", { title: "Offsite", plan: "Drive up Friday at 3\nOne cabin sleeps 12\n6am hike then 9 to 5 session\nBudget $4800 split evenly\nAlcohol on company card\nPriya books Monday" });
-ok(st === 200 && r.code && r.owner, "room created");
+ok(st === 200 && r.code && r.code.length === 6 && r.owner, "room created, six-char code");
+[st] = await post(`/room/${r.code}/new`, { plan: "a\nb\nc" });
+ok(st === 404, "/room/<code>/new is not a public path");
+[st] = await post(`/room/${r.code}/join`, { token: r.owner });
+ok(st === 409, "owner cannot join as a reviewer");
 const code = r.code, owner = r.owner;
 
 // three reviewers, no cap: add a fourth and fifth too
 const toks = [];
 for (let i = 0; i < 5; i++) { const [s2, j] = await post(`/room/${code}/join`, {}); ok(s2 === 200 && j.token, "join " + i); toks.push(j.token); }
-let v = await get(`/room/${code}/state?t=${toks[0]}`);
+let v = await get(`/room/${code}/state`, toks[0]);
 ok(v.reviewers === 5 && v.phase === "review" && v.you.joined && !v.you.owner, "state before seal");
 ok(v.reveal === undefined, "no reveal data during review");
 
@@ -30,6 +34,8 @@ ok(st === 403, "unknown token cannot seal");
 ok(st === 200, "seal 0 with two distinct lines");
 [st, r] = await post(`/room/${code}/seal`, { token: toks[0], flags: [{ line: 0 }, { line: 1 }] });
 ok(st === 409, "cannot seal twice");
+[st] = await post(`/room/${code}/reveal`, { token: owner });
+ok(st === 409, "reveal with one sealed is refused (quorum)");
 [st] = await post(`/room/${code}/seal`, { token: toks[1], flags: [{ line: 2, why: "not everyone can hike" }, { line: 3, why: "" }] });
 ok(st === 200, "seal 1");
 [st] = await post(`/room/${code}/seal`, { token: toks[2], flags: [{ line: 4, why: "two people do not drink" }, { line: 5, why: "Priya is out Monday" }] });
@@ -48,7 +54,7 @@ ok(st === 200 && r.phase === "reveal", "owner reveals");
 ok(st === 409, "no joining after reveal");
 
 // the seal rule
-v = await get(`/room/${code}/state?t=${owner}`);
+v = await get(`/room/${code}/state`, owner);
 ok(v.you.owner, "owner flagged as owner");
 ok(v.flags === 6 && v.secondedCount === 2, `totals: flags ${v.flags} seconded ${v.secondedCount}`);
 ok(v.reveal[2].count === 2 && v.reveal[2].seconded && v.reveal[2].whys.length === 2, "line 2 seconded, two whys");
@@ -75,8 +81,11 @@ ok(st === 200 && r.go === true, "second answer flips GO");
 v = await get(`/room/${code}/state`);
 ok(v.go === true && v.reveal[4].answer.choice === "stop", "GO visible to an anonymous reader");
 
+// oversized body
+const big = await fetch(BASE + `/room/${code}/join`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ pad: "x".repeat(40000) }) });
+ok(big.status === 413, "oversized body refused");
 // unknown room
-const nf = await fetch(BASE + "/room/ZZZ99/state");
+const nf = await fetch(BASE + "/room/ZZZ999/state");
 ok(nf.status === 404, "unknown room 404");
 
 console.log(`${pass} passed, ${fail} failed`);
