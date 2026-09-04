@@ -45,6 +45,9 @@
   textarea::placeholder,input::placeholder{color:var(--faint)}
   .code{font-family:var(--display);font-size:32px;letter-spacing:.2em;text-transform:uppercase;max-width:9ch}
   .err{color:var(--blood);font-size:13px;min-height:1.4em;margin-top:10px}
+  .samples{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 14px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
+  .samples button{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;border:1.5px solid var(--ink);background:transparent;color:var(--ink);padding:3px 10px;cursor:pointer}
+  .samples button:hover{background:var(--blood);border-color:var(--blood);color:var(--paper)}
 
   ol.lines{list-style:none;margin:0;padding:0;counter-reset:ln}
   ol.lines li{position:relative;padding:5px 0;min-height:30px;border-bottom:1px dotted var(--rule)}
@@ -112,6 +115,7 @@
 
 <section id="share" class="paper" hidden>
   <div class="head"><span>your plan</span><span>one line per plan line · first line is the title</span></div>
+  <div class="samples"><span>start from a sample:</span><button data-sample="offsite">Team offsite</button><button data-sample="launch">Product launch</button><button data-sample="move">Apartment move</button><button data-sample="trip">Road trip</button></div>
   <textarea id="plan" placeholder="Team offsite, Big Bear, Oct 17 to 19
 Drive up Friday after the 3pm all-hands, arrive by 8.
 One cabin, sleeps 12. Two bathrooms.
@@ -159,6 +163,45 @@ async function api(p, body, tok) {
 
 function show(id) { for (const s of document.querySelectorAll("section")) s.hidden = s.id !== id; if (id !== "room" && poll) { clearInterval(poll); poll = null; } }
 document.addEventListener("click", (e) => { const g = e.target.closest("[data-go]"); if (g) { e.preventDefault(); show(g.dataset.go); if (g.dataset.go === "home") history.replaceState(null, "", location.pathname); } });
+
+const SAMPLES = {
+  offsite: `Team offsite, Big Bear, Oct 17 to 19
+Drive up Friday after the 3pm all-hands, arrive by 8.
+One cabin, sleeps 12. Two bathrooms.
+Saturday: 6am sunrise hike, then planning session 9 to 5.
+Budget $4,800 total, food included, split evenly.
+Alcohol at dinner both nights, company card.
+Sunday: leave by 10 so people are home for the game.
+Priya books everything Monday.`,
+  launch: `Launch v2 on Tuesday Oct 7
+Announce on X, LinkedIn and the newsletter at 9am ET, same copy everywhere.
+Pricing goes from $12 to $19 a month for new signups, existing users grandfathered for 6 months.
+Sales gets the deck Monday night.
+Support docs are updated the morning of launch.
+No staged rollout, everyone gets v2 at once.
+Marcus owns the launch day war room, solo.
+Success is 500 signups in week one.`,
+  move: `Move to the new apartment, Saturday Nov 1
+Rent one 15-foot truck for 6 hours, 8am to 2pm.
+Four of us carry, nobody hired.
+Pack everything Friday night after work.
+Elevator at the new place is booked 10 to 12 only.
+Couch goes down three flights of stairs at the old place.
+Pizza and beer for helpers, on Sam.
+Return the truck by 2pm or pay the late fee.`,
+  trip: `Road trip to Zion, Thursday to Sunday
+Leave LA at 4am Thursday, drive 7 hours straight.
+One car, five people plus camping gear.
+Camp two nights, hotel the third.
+Angels Landing hike Friday, permits not yet booked.
+Food budget $40 a person a day, cash pooled.
+Dee drives the whole way there, Jordan drives back.
+Phones off at the campsite, that is the point.`,
+};
+document.querySelector(".samples").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-sample]"); if (!b) return;
+  $("#plan").value = SAMPLES[b.dataset.sample]; $("#plan").focus(); $("#shareErr").textContent = "";
+});
 
 $("#openRoom").onclick = async () => {
   $("#shareErr").textContent = "";
